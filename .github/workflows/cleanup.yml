@@ -1,0 +1,27 @@
+name: Daily cleanup
+on:
+  schedule:
+    - cron: '0 3 * * *'   # about 10-11 PM Eastern
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Delete post folders dated today or earlier (Eastern)
+        run: |
+          today=$(TZ=America/New_York date +%F)
+          for d in posts/*/; do
+            name=$(basename "$d")
+            if [[ "$name" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && [[ ! "$name" > "$today" ]]; then
+              git rm -rq "$d"
+            fi
+          done
+          if ! git diff --cached --quiet; then
+            git config user.name "cleanup-bot"
+            git config user.email "cleanup-bot@users.noreply.github.com"
+            git commit -m "Remove posted slides through $today"
+            git push
+          fi
